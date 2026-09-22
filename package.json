@@ -1,0 +1,33 @@
+{
+  "name": "jevex",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
+    "@types/bun": "latest",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "convex-test": "^0.0.59",
+    "vitest": "^5.0.1"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@convex-dev/rate-limiter": "^0.4.0",
+    "@convex-dev/workpool": "^0.4.12",
+    "@typesafe-ai/sdk": "^0.6.0",
+    "convex": "^1.46.0",
+    "convex-helpers": "^0.1.124",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "scripts": {
+    "dev": "convex dev",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "mock": "bun scripts/mock-jev.ts",
+    "jev": "bun scripts/jev-smoke.ts",
+    "web": "bun --hot serve.ts"
+  }
+}
