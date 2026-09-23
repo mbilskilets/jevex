@@ -8,14 +8,14 @@ answers are written back to your database, and your queries read them like any o
 Reads are reactive and cost nothing extra.
 
 ```bash
-npm install jevex
+npm install @mbilskilets/jevex
 ```
 
 ```ts
 // convex/convex.config.ts
 import { defineApp } from "convex/server";
 import { v } from "convex/values";
-import jevex from "jevex/convex.config";
+import jevex from "@mbilskilets/jevex/convex.config";
 
 const app = defineApp({
   env: { TYPESAFE_API_KEY: v.string() },
@@ -35,7 +35,7 @@ Get one at [console.typesafe.ai](https://console.typesafe.ai).
 // convex/judges.ts
 import { components, internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
-import { choice, Jevex, noul, score } from "jevex";
+import { choice, Jevex, noul, score } from "@mbilskilets/jevex";
 
 const jevex = new Jevex<DataModel>(components.jevex);
 
@@ -294,17 +294,17 @@ bun run typecheck
 
 ## Testing your app
 
-`jevex/test` registers the component with convex-test. It uses a workpool, so register that too:
+`@mbilskilets/jevex/test` registers the component with convex-test. It uses a workpool, so register that too:
 
 ```ts
 import workpool from "@convex-dev/workpool/test";
 import { convexTest } from "convex-test";
-import jevex from "jevex/test";
+import jevex from "@mbilskilets/jevex/test";
 import schema from "./schema";
 
 const t = convexTest(schema, import.meta.glob("./**/*.ts"));
 jevex.register(t);
-workpool.register(t, "jevex/judges");
+workpool.register(t, "@mbilskilets/jevex/judges");
 ```
 
 ## Layout

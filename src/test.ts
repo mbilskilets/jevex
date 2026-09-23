@@ -12,11 +12,11 @@ export { schema };
  *
  * ```ts
  * import workpool from "@convex-dev/workpool/test";
- * import jevex from "jevex/test";
+ * import jevex from "@mbilskilets/jevex/test";
  *
  * const t = convexTest(schema, modules);
  * jevex.register(t);
- * workpool.register(t, "jevex/judges");
+ * workpool.register(t, "@mbilskilets/jevex/judges");
  * ```
  */
 export function register(t: TestConvex<SchemaDefinition<GenericSchema, boolean>>, name = "jevex") {

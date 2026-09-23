@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "@convex-dev/rate-limiter": "^0.4.0",
+    "@mbilskilets/jevex": "link:@mbilskilets/jevex",
     "convex": "^1.46.0",
     "convex-helpers": "^0.1.124",
-    "jevex": "link:jevex",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
