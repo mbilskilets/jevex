@@ -1,5 +1,5 @@
 {
-  "name": "jevex",
+  "name": "@mbilskilets/jevex",
   "version": "0.1.0",
   "description": "Convex component that turns TypeSafe's Jev into a semantic index: declare questions about a table, answers are judged on write and read like any indexed field.",
   "type": "module",

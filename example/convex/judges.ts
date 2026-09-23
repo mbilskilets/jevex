@@ -1,6 +1,6 @@
 import { components, internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
-import { choice, Jevex, noul, score, type JevexIndex } from "jevex";
+import { choice, Jevex, noul, score, type JevexIndex } from "@mbilskilets/jevex";
 import { kinds, urgencies } from "./triage";
 
 const jevex = new Jevex<DataModel>(components.jevex);

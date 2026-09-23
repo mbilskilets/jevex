@@ -1,7 +1,7 @@
 import { defineApp } from "convex/server";
 import { v } from "convex/values";
 import rateLimiter from "@convex-dev/rate-limiter/convex.config";
-import jevex from "jevex/convex.config";
+import jevex from "@mbilskilets/jevex/convex.config";
 
 const app = defineApp({
   env: {

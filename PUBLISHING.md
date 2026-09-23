@@ -45,5 +45,5 @@ bun run typecheck
 bun run test
 ```
 
-The package ships `dist/` only. Consumers import `jevex`, `jevex/convex.config`,
-`jevex/_generated/component` and `jevex/test`.
+The package ships `dist/` only. Consumers import `@mbilskilets/jevex`, `@mbilskilets/jevex/convex.config`,
+`@mbilskilets/jevex/_generated/component` and `@mbilskilets/jevex/test`.
