@@ -1,8 +1,8 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, type MutationCtx } from "./_generated/server";
-import { canonical, sha256 } from "./hash";
-import { clearAnswers, ensureDispatch, findJudgment, settle, toJudgment } from "./model";
-import { vHit, vJudgment, vQuestions, type Questions } from "./validators";
+import { mutation, query, type MutationCtx } from "./_generated/server.js";
+import { canonical, sha256 } from "./hash.js";
+import { clearAnswers, ensureDispatch, findJudgment, settle, toJudgment } from "./model.js";
+import { vHit, vJudgment, vQuestions, type Questions } from "./validators.js";
 
 const MAX_BATCH_SIZE = 100;
 const MAX_HITS = 500;

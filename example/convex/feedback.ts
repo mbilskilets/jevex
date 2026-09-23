@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { components } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, query } from "./_generated/server";
-import { vOnJudgedArgs, type JudgmentOf } from "./components/jevex/client";
+import { vOnJudgedArgs, type JudgmentOf } from "@mbilskilets/jevex";
 import { mutation } from "./functions";
 import { feedbackJudge, type FeedbackQuestions } from "./judges";
 import schema from "./schema";

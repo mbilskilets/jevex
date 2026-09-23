@@ -1,8 +1,8 @@
 import type { FunctionHandle } from "convex/server";
-import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
-import type { Answer, Answers, Judgment } from "./validators";
+import { internal } from "./_generated/api.js";
+import type { Doc } from "./_generated/dataModel.js";
+import type { MutationCtx, QueryCtx } from "./_generated/server.js";
+import type { Answer, Answers, Judgment } from "./validators.js";
 
 const FLUSH_AFTER_MS = 100;
 const DISPATCH_GRACE_MS = 60 * 1000;

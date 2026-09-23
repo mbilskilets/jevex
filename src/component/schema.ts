@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { vAnswers, vJson, vQuestions } from "./validators";
+import { vAnswers, vJson, vQuestions } from "./validators.js";
 
 const judgment = {
   index: v.string(),
