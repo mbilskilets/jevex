@@ -18,6 +18,8 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        versions: [">=6"]
 
   - package-ecosystem: npm
     directory: /example
@@ -29,3 +31,5 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      - dependency-name: typescript
+        versions: [">=6"]
