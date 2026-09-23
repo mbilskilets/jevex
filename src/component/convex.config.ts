@@ -4,7 +4,7 @@ import workpool from "@convex-dev/workpool/convex.config";
 
 const component = defineComponent("jevex", {
   env: {
-    TYPESAFE_API_KEY: v.optional(v.string()),
+    TYPESAFE_API_KEY: v.string(),
     TYPESAFE_BASE_URL: v.optional(v.string()),
   },
 });

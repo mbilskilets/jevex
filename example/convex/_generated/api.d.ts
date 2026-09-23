@@ -53,6 +53,6 @@ export declare const internal: FilterApi<
 >;
 
 export declare const components: {
-  jevex: import("../components/jevex/_generated/component.js").ComponentApi<"jevex">;
+  jevex: import("jevex/_generated/component.js").ComponentApi<"jevex">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
 };
