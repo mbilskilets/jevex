@@ -13,17 +13,23 @@ release with generated notes.
 
 ## One-time setup
 
-- Publish the first version by hand from a logged-in machine, because npm only
-  lets you configure a trusted publisher on a package that already exists:
+The account has 2FA on, so the first publish needs one of:
+
+- Locally, with a one-time code from your authenticator:
 
   ```bash
-  bun run build:clean
-  npm publish --access public
+  bun run build
+  npm publish --access public --otp=<code>
   ```
 
-- On npmjs.com, open the package, Settings, Trusted Publisher, GitHub Actions.
-  Repository `mbilskilets/jevex`, workflow `release.yml`. No npm token is stored
-  in GitHub.
+- Or from CI: on npmjs.com create a granular access token with "bypass 2FA"
+  and publish rights, add it as the `NPM_TOKEN` repository secret on GitHub,
+  and run the Release workflow with the exact version `0.1.0`.
+
+After the package exists, switch to Trusted Publishing: on npmjs.com open the
+package, Settings, Trusted Publisher, GitHub Actions, repository
+`mbilskilets/jevex`, workflow `release.yml`. Then delete the `NPM_TOKEN` secret.
+The workflow uses OIDC when the secret is absent.
 
 ## Local checks
 

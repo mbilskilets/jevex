@@ -5,9 +5,10 @@ name: Release
 # commits, tags, pushes, publishes to npm with provenance, and creates a
 # GitHub release.
 #
-# npm auth uses Trusted Publishing (OIDC): on npmjs.com, package settings ->
-# Trusted Publisher -> GitHub Actions, repository mbilskilets/jevex,
-# workflow release.yml. No npm token is stored anywhere.
+# npm auth: if the NPM_TOKEN secret is set (granular token with "bypass 2FA"),
+# it is used. Otherwise Trusted Publishing (OIDC) is used: on npmjs.com,
+# package settings -> Trusted Publisher -> GitHub Actions, repository
+# mbilskilets/jevex, workflow release.yml.
 
 on:
   workflow_dispatch:
@@ -57,10 +58,25 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          npm version "${{ inputs.version }}" -m "v%s"
-          echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+          current=$(node -p "require('./package.json').version")
+          if [ "${{ inputs.version }}" = "$current" ]; then
+            git tag "v$current"
+          else
+            npm version "${{ inputs.version }}" -m "v%s"
+          fi
+          echo "tag=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: Publish to npm
+      - name: Publish to npm (token)
+        if: env.NPM_TOKEN != ''
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public --provenance
+
+      - name: Publish to npm (trusted publishing)
+        if: env.NPM_TOKEN == ''
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public --provenance
 
       - name: Push commit and tag
