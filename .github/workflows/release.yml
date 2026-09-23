@@ -1,22 +1,21 @@
 name: Release
 
-# Manual releases. Run this workflow from the Actions tab, pick a bump
-# (patch, minor, major) or type an exact version. It bumps package.json,
-# commits, tags, pushes, publishes to npm with provenance, and creates a
-# GitHub release.
+# Manual releases. Bump "version" in package.json and add a CHANGELOG entry in
+# a normal PR, merge it, then run this workflow from the Actions tab. It
+# verifies that no tag exists for that version yet, builds and tests, publishes
+# to npm with provenance, pushes the tag, and creates a GitHub release.
 #
-# npm auth: if the NPM_TOKEN secret is set (granular token with "bypass 2FA"),
-# it is used. Otherwise Trusted Publishing (OIDC) is used: on npmjs.com,
-# package settings -> Trusted Publisher -> GitHub Actions, repository
-# mbilskilets/jevex, workflow release.yml.
+# Who can release: the job only runs for the repository owner and uses the
+# "npm-release" environment, which requires the owner's approval before any
+# secret is exposed or anything is published.
+#
+# npm auth: if the NPM_TOKEN secret is set on the environment (granular token
+# with "bypass 2FA"), it is used. Otherwise Trusted Publishing (OIDC) is
+# used: on npmjs.com, package settings -> Trusted Publisher -> GitHub Actions,
+# repository mbilskilets/jevex, workflow release.yml, environment npm-release.
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: "patch, minor, major, or an exact version like 0.2.0"
-        required: true
-        default: patch
 
 permissions: {}
 
@@ -26,20 +25,24 @@ concurrency:
 
 jobs:
   release:
+    if: github.actor == 'mbilskilets' && github.repository == 'mbilskilets/jevex'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: npm-release
     permissions:
       contents: write
       id-token: write
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: main
           fetch-depth: 0
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -47,42 +50,48 @@ jobs:
       - name: Upgrade npm for trusted publishing
         run: npm install -g npm@latest
 
+      - name: Resolve version
+        id: version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          tag="v$version"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "::error::tag $tag already exists; bump package.json in a PR first"
+            exit 1
+          fi
+          if ! grep -q "$version" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no entry for $version"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
       - run: bun install --frozen-lockfile
       - run: bun run link
       - run: bun run build
       - run: bun run typecheck
       - run: bun run test
 
-      - name: Bump version and tag
-        id: bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          current=$(node -p "require('./package.json').version")
-          if [ "${{ inputs.version }}" = "$current" ]; then
-            git tag "v$current"
-          else
-            npm version "${{ inputs.version }}" -m "v%s"
-          fi
-          echo "tag=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-
       - name: Publish to npm (token)
         if: env.NPM_TOKEN != ''
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public --provenance
 
       - name: Publish to npm (trusted publishing)
         if: env.NPM_TOKEN == ''
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --access public --provenance
 
-      - name: Push commit and tag
-        run: git push --follow-tags origin main
+      - name: Tag and push
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "$TAG"
+          git push origin "refs/tags/$TAG"
 
       - name: GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ steps.bump.outputs.tag }}" --generate-notes --title "${{ steps.bump.outputs.tag }}"
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release create "$TAG" --generate-notes --title "$TAG"
