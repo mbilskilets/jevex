@@ -9,8 +9,8 @@ import {
   type TableNamesInDataModel,
 } from "convex/server";
 import { v, type GenericId } from "convex/values";
-import type { ComponentApi } from "../_generated/component";
-import { vAnswers, vJudgment, type Answers, type Judgment, type Questions as StoredQuestions } from "../validators";
+import type { ComponentApi } from "../component/_generated/component.js";
+import { vAnswers, vJudgment, type Answers, type Judgment, type Questions as StoredQuestions } from "../component/validators.js";
 
 export { choice, noul, score } from "@typesafe-ai/sdk";
 export { vJudgment };

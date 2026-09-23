@@ -1,0 +1,72 @@
+name: Release
+
+# Manual releases. Run this workflow from the Actions tab, pick a bump
+# (patch, minor, major) or type an exact version. It bumps package.json,
+# commits, tags, pushes, publishes to npm with provenance, and creates a
+# GitHub release.
+#
+# npm auth uses Trusted Publishing (OIDC): on npmjs.com, package settings ->
+# Trusted Publisher -> GitHub Actions, repository mbilskilets/jevex,
+# workflow release.yml. No npm token is stored anywhere.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "patch, minor, major, or an exact version like 0.2.0"
+        required: true
+        default: patch
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
+
+      - run: bun install --frozen-lockfile
+      - run: bun run link
+      - run: bun run build
+      - run: bun run typecheck
+      - run: bun run test
+
+      - name: Bump version and tag
+        id: bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm version "${{ inputs.version }}" -m "v%s"
+          echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to npm
+        run: npm publish --access public --provenance
+
+      - name: Push commit and tag
+        run: git push --follow-tags origin main
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ steps.bump.outputs.tag }}" --generate-notes --title "${{ steps.bump.outputs.tag }}"

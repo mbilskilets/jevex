@@ -4,9 +4,9 @@ import workpool from "@convex-dev/workpool/test";
 import { convexTest } from "convex-test";
 import type { FunctionReference } from "convex/server";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { api, components } from "./_generated/api";
-import jevexSchema from "./components/jevex/schema";
-import schema from "./schema";
+import { api, components } from "../example/convex/_generated/api.js";
+import schema from "../example/convex/schema.js";
+import jevex from "./test.js";
 
 type Request = {
   state: { rows: { text: string }[] };
@@ -54,8 +54,8 @@ function gate() {
 }
 
 function setup() {
-  const t = convexTest(schema, import.meta.glob(["./**/*.ts", "!./components/**"]));
-  t.registerComponent("jevex", jevexSchema, import.meta.glob("./components/jevex/**/*.ts"));
+  const t = convexTest(schema, import.meta.glob("../example/convex/**/*.ts"));
+  jevex.register(t);
   workpool.register(t, "jevex/judges");
   rateLimiter.register(t);
   return t;

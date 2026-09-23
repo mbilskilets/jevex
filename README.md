@@ -7,7 +7,38 @@ index. You declare questions about a table. Every insert and update is judged in
 answers are written back to your database, and your queries read them like any other indexed field.
 Reads are reactive and cost nothing extra.
 
+```bash
+npm install jevex
+```
+
 ```ts
+// convex/convex.config.ts
+import { defineApp } from "convex/server";
+import { v } from "convex/values";
+import jevex from "jevex/convex.config";
+
+const app = defineApp({
+  env: { TYPESAFE_API_KEY: v.string() },
+});
+
+app.use(jevex, {
+  env: { TYPESAFE_API_KEY: app.env.TYPESAFE_API_KEY },
+});
+
+export default app;
+```
+
+Set the key on your deployment with `npx convex env set TYPESAFE_API_KEY <your key>`.
+Get one at [console.typesafe.ai](https://console.typesafe.ai).
+
+```ts
+// convex/judges.ts
+import { components, internal } from "./_generated/api";
+import type { DataModel } from "./_generated/dataModel";
+import { choice, Jevex, noul, score } from "jevex";
+
+const jevex = new Jevex<DataModel>(components.jevex);
+
 export const feedbackJudge = jevex.index("feedback", {
   state: ({ text, plan }) => ({ text, plan }),
   questions: {
@@ -20,6 +51,24 @@ export const feedbackJudge = jevex.index("feedback", {
 
 const leaving = await feedbackJudge.top(ctx, "churn", { min: 0.8 });
 const bugs = await feedbackJudge.top(ctx, "kind", { label: "bug" });
+```
+
+Judging happens on write. Register the index as a
+[convex-helpers trigger](https://github.com/get-convex/convex-helpers#triggers) and use the wrapped
+`mutation` for writes to that table:
+
+```ts
+// convex/functions.ts
+import { customCtx, customMutation } from "convex-helpers/server/customFunctions";
+import { Triggers } from "convex-helpers/server/triggers";
+import type { DataModel } from "./_generated/dataModel";
+import { mutation as rawMutation } from "./_generated/server";
+import { feedbackJudge } from "./judges";
+
+const triggers = new Triggers<DataModel>();
+triggers.register("feedback", feedbackJudge.trigger());
+
+export const mutation = customMutation(rawMutation, customCtx(triggers.wrapDB));
 ```
 
 Why judge at write time? Convex queries can't call external APIs, because they have to stay
@@ -211,25 +260,27 @@ await index.forget(ctx, id);
 - Index definitions live in your code. Change a question and every row is judged again on its next
   write, because the question hash is part of the cache key.
 
-## Running it locally
+## Running the example
 
 You need [Bun](https://bun.sh) and a TypeSafe API key from [console.typesafe.ai](https://console.typesafe.ai).
 
 ```bash
 bun install
-bun run dev
+bun run link            # registers the package so example/ imports it
+bun run build:codegen   # component codegen + build + app codegen
+bun run dev             # convex dev for example/convex
 bunx convex env set TYPESAFE_API_KEY <your key>
-bun run web
+cd example && bun run web
 ```
 
-`bun run dev` starts Convex. `bun run web` serves the board on port 4321 and forwards Convex traffic
-(`/api/*`, HTTP and websocket) to the backend, so the whole demo works through one port. That matters
-behind proxies that forward a single port.
+`bun run web` serves the board on port 4321 and forwards Convex traffic (`/api/*`, HTTP and websocket)
+to the backend, so the whole demo works through one port. That matters behind proxies that forward a
+single port.
 
 No key? There is a deterministic stand-in for the API:
 
 ```bash
-bun run mock
+cd example && bun run mock
 bunx convex env set TYPESAFE_API_KEY mock
 bunx convex env set TYPESAFE_BASE_URL http://127.0.0.1:3999
 ```
@@ -241,18 +292,31 @@ bun run test
 bun run typecheck
 ```
 
+## Testing your app
+
+`jevex/test` registers the component with convex-test. It uses a workpool, so register that too:
+
+```ts
+import workpool from "@convex-dev/workpool/test";
+import { convexTest } from "convex-test";
+import jevex from "jevex/test";
+import schema from "./schema";
+
+const t = convexTest(schema, import.meta.glob("./**/*.ts"));
+jevex.register(t);
+workpool.register(t, "jevex/judges");
+```
+
 ## Layout
 
 ```
-convex/components/jevex/          the component: schema, judge/get/top, batcher, lease cron
-convex/components/jevex/client/   typed client: Jevex, JevexIndex, choice, noul, score
-convex/triage.ts                  demo vocabulary: categories, urgency levels, limits
-convex/judges.ts                  the feedback index
-convex/functions.ts               mutation wrappers that run the triggers
-convex/feedback.ts                demo backend: submit, inbox, atRisk, bugs, churn alerts
-convex/jevex.test.ts              tests
-web/, serve.ts                    the sorting board (Bun.serve and React)
-scripts/mock-jev.ts               local stand-in for the Jev API
+src/component/            the component: schema, judge/get/top, batcher, lease cron
+src/client/               typed client: Jevex, JevexIndex, choice, noul, score
+src/test.ts               convex-test registration helper
+src/jevex.test.ts         tests, run against the example app
+example/convex/           demo backend: feedback index, triggers, inbox, atRisk, bugs, churn alerts
+example/web, serve.ts     the sorting board (Bun.serve and React)
+example/scripts/          local stand-in for the Jev API
 ```
 
 ## Things to know
@@ -264,4 +328,3 @@ scripts/mock-jev.ts               local stand-in for the Jev API
 - The cache grows with every distinct piece of content and has no eviction yet.
 - The demo's mutations are public and have no auth, on purpose. Writes that reach Jev are rate limited
   to bursts of 60 and 120 per minute across the deployment.
-- jevex is a local component in this repo for now, not an npm package.

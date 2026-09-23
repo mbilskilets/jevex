@@ -9,7 +9,6 @@
  */
 
 import type * as batch from "../batch.js";
-import type * as client_index from "../client/index.js";
 import type * as crons from "../crons.js";
 import type * as hash from "../hash.js";
 import type * as lib from "../lib.js";
@@ -25,7 +24,6 @@ import { anyApi, componentsGeneric } from "convex/server";
 
 const fullApi: ApiFromModules<{
   batch: typeof batch;
-  "client/index": typeof client_index;
   crons: typeof crons;
   hash: typeof hash;
   lib: typeof lib;

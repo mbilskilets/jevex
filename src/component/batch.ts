@@ -7,11 +7,11 @@ import {
   type ScoreResponse,
 } from "@typesafe-ai/sdk";
 import { v } from "convex/values";
-import { components, internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
-import { env, internalAction, internalMutation } from "./_generated/server";
-import { ensureDispatch, identity, settle } from "./model";
-import { vAnswers, vJson, vQuestions, type Answer, type Question } from "./validators";
+import { components, internal } from "./_generated/api.js";
+import type { Doc, Id } from "./_generated/dataModel.js";
+import { env, internalAction, internalMutation } from "./_generated/server.js";
+import { ensureDispatch, identity, settle } from "./model.js";
+import { vAnswers, vJson, vQuestions, type Answer, type Question } from "./validators.js";
 
 const DISPATCH_LIMIT = 400;
 const LEASE_MS = 10 * 60 * 1000;
