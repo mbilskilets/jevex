@@ -3,7 +3,8 @@ name: Release
 # Manual releases. Bump "version" in package.json and add a CHANGELOG entry in
 # a normal PR, merge it, then run this workflow from the Actions tab. It
 # verifies that no tag exists for that version yet, builds and tests, publishes
-# to npm with provenance, pushes the tag, and creates a GitHub release.
+# to npm with provenance and to GitHub Packages, pushes the tag, and creates
+# a GitHub release.
 #
 # Who can release: the job only runs for the repository owner and uses the
 # "npm-release" environment, which requires the owner's approval before any
@@ -32,6 +33,7 @@ jobs:
     permissions:
       contents: write
       id-token: write
+      packages: write
     env:
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
@@ -80,6 +82,13 @@ jobs:
       - name: Publish to npm (trusted publishing)
         if: env.NPM_TOKEN == ''
         run: npm publish --access public --provenance
+
+      - name: Publish to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=\${NODE_AUTH_TOKEN}" > "$RUNNER_TEMP/gh.npmrc"
+          npm publish --access public --registry https://npm.pkg.github.com --userconfig "$RUNNER_TEMP/gh.npmrc"
 
       - name: Tag and push
         env:
