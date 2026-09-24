@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "convex dev --typecheck-components",
-    "web": "bun --hot serve.ts",
+    "web": "bun --hot --env-file=../.env.local serve.ts",
     "jev": "bun scripts/jev-smoke.ts",
     "typecheck": "tsc --noEmit"
   },

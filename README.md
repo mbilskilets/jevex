@@ -298,13 +298,17 @@ TypeSafe. For another provider, set its variable instead.
 bun install
 bun run link            # registers the package so example/ imports it
 bun run build:codegen   # component codegen + build + app codegen
-bun run dev             # convex dev for example/convex
+bun run dev             # convex dev for example/convex, leave it running
+
+# in a second terminal
 bunx convex env set TYPESAFE_API_KEY <your key>
 cd example && bun run web
 ```
 
 `bun run web` serves the board on port 4321 and forwards Convex traffic (`/api/*`, HTTP and
-websocket) to the backend, so the whole demo works through one port.
+websocket) to the backend, so the whole demo works through one port. It reads the deployment URL
+that `convex dev` writes to `.env.local`, so a cloud and a local deployment both work. Set
+`CONVEX_URL` to point it somewhere else.
 
 Tests run on convex-test with a fake Jev API, so they never call the real one:
 
