@@ -1,6 +1,6 @@
 {
   "name": "@mbilskilets/jevex",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A small Convex component that uses Jev to build a semantic index over your tables.",
   "type": "module",
   "main": "./dist/client/index.js",
