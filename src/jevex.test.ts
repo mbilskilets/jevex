@@ -8,7 +8,15 @@ import { api, components } from "../example/convex/_generated/api.js";
 import schema from "../example/convex/schema.js";
 import jevex from "./test.js";
 
+vi.mock("convex/server", async (original) => ({
+  ...(await original<typeof import("convex/server")>()),
+  getServiceToken: async () => "convex-service-token",
+}));
+
 type Request = {
+  url: string;
+  auth: string | null;
+  model: string;
   state: { rows: { text: string }[] };
   questions: Record<string, { type: "noul" | "choice" | "score"; instructions: string }>;
 };
@@ -33,8 +41,12 @@ function answer(type: string, name: string, text: string) {
 }
 
 function jev(status = 200) {
-  return vi.fn(async (_url: string, init?: RequestInit) => {
-    const request = JSON.parse(String(init?.body)) as Request;
+  return vi.fn(async (url: string | URL, init?: RequestInit) => {
+    const request = {
+      ...(JSON.parse(String(init?.body)) as Request),
+      url: String(url),
+      auth: new Headers(init?.headers).get("authorization"),
+    };
     calls.push(request);
     if (status !== 200) return new Response("nope", { status });
     const answers = Object.fromEntries(
@@ -240,4 +252,45 @@ test("marks the batch failed when Jev rejects it", async () => {
 
   expect(calls).toHaveLength(1);
   expect(await inboxItem(t)).toMatchObject({ state: "failed", reading: null });
+});
+
+test.each([
+  ["typesafe", "TYPESAFE_API_KEY", "https://api.typesafe.ai/v1/systemone", "jev-latest"],
+  ["vercel", "AI_GATEWAY_API_KEY", "https://ai-gateway.vercel.sh/typesafe/v1/systemone", "typesafe-ai/jev"],
+  ["openrouter", "OPENROUTER_API_KEY", "https://openrouter.ai/api/v1/systemone", "jev-latest"],
+])("picks %s from the key that is set", async (_provider, key, url, model) => {
+  vi.stubEnv("TYPESAFE_API_KEY", undefined);
+  vi.stubEnv(key, "picked-key");
+  const t = setup();
+  await t.mutation(api.feedback.submit, { text: "Totally broken", author: "ha", plan: "free" });
+  await drain(t);
+
+  expect(calls).toMatchObject([{ url, model, auth: "Bearer picked-key" }]);
+  expect(await inboxItem(t)).toMatchObject({ state: "judged", reading: { kind: "bug" } });
+});
+
+test("calls the Convex AI Gateway with a deployment token", async () => {
+  vi.stubEnv("TYPESAFE_API_KEY", undefined);
+  vi.stubEnv("JEV_PROVIDER", "convex");
+  const t = setup();
+  await t.mutation(api.feedback.submit, { text: "Totally broken", author: "ia", plan: "free" });
+  await drain(t);
+
+  expect(calls).toMatchObject([
+    { url: "https://ai-gateway.convex.dev/alpha/decisions", model: "typesafe/jev-1.13", auth: "Bearer convex-service-token" },
+  ]);
+  expect(await inboxItem(t)).toMatchObject({ state: "judged", reading: { kind: "bug" } });
+});
+
+test("fails the batch when several keys are set and no provider is picked", async () => {
+  vi.stubEnv("OPENROUTER_API_KEY", "second-key");
+  const t = setup();
+  const id = await t.mutation(api.feedback.submit, { text: "hello", author: "ja", plan: "free" });
+  await drain(t);
+
+  expect(calls).toHaveLength(0);
+  expect(await t.query(components.jevex.lib.get, { index: "feedback", docId: id })).toMatchObject({
+    state: "failed",
+    error: expect.stringMatching(/TYPESAFE_API_KEY, OPENROUTER_API_KEY.*JEV_PROVIDER/),
+  });
 });

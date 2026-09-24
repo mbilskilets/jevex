@@ -1,6 +1,5 @@
 import { vOnCompleteArgs, Workpool } from "@convex-dev/workpool";
 import {
-  TypeSafeClient,
   type ChoiceResponse,
   type NoulResponse,
   type Question as JevQuestion,
@@ -9,8 +8,9 @@ import {
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api.js";
 import type { Doc, Id } from "./_generated/dataModel.js";
-import { env, internalAction, internalMutation } from "./_generated/server.js";
+import { internalAction, internalMutation } from "./_generated/server.js";
 import { ensureDispatch, identity, settle } from "./model.js";
+import { client } from "./provider.js";
 import { vAnswers, vJson, vQuestions, type Answer, type Question } from "./validators.js";
 
 const DISPATCH_LIMIT = 400;
@@ -93,7 +93,7 @@ export const judge = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, { spec, claim, questions, rows }) => {
-    const jev = new TypeSafeClient({ apiKey: env.TYPESAFE_API_KEY, baseURL: env.TYPESAFE_BASE_URL });
+    const jev = await client();
     const asked = Object.entries(questions);
     const { answers } = await jev.systemOne({
       state: { rows: rows.map(({ state }) => state) },

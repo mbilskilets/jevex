@@ -39,7 +39,11 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
-  readonly TYPESAFE_API_KEY: string;
+  readonly AI_GATEWAY_API_KEY: string | undefined;
+  readonly JEV_PROVIDER:
+    "typesafe" | "vercel" | "openrouter" | "convex" | undefined;
+  readonly OPENROUTER_API_KEY: string | undefined;
+  readonly TYPESAFE_API_KEY: string | undefined;
   readonly TYPESAFE_BASE_URL: string | undefined;
 };
 
