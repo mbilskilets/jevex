@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1
 
 - Call Jev through the Vercel AI Gateway (`AI_GATEWAY_API_KEY`), OpenRouter (`OPENROUTER_API_KEY`)
   or the Convex AI Gateway (`JEV_PROVIDER=convex`, no key). The provider comes from whichever key is
