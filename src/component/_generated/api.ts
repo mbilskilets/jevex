@@ -13,6 +13,7 @@ import type * as crons from "../crons.js";
 import type * as hash from "../hash.js";
 import type * as lib from "../lib.js";
 import type * as model from "../model.js";
+import type * as provider from "../provider.js";
 import type * as validators from "../validators.js";
 
 import type {
@@ -28,6 +29,7 @@ const fullApi: ApiFromModules<{
   hash: typeof hash;
   lib: typeof lib;
   model: typeof model;
+  provider: typeof provider;
   validators: typeof validators;
 }> = anyApi as any;
 

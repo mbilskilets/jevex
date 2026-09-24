@@ -40,6 +40,39 @@ export default app;
 Set the key with `npx convex env set TYPESAFE_API_KEY <your key>`. You can get one at
 [console.typesafe.ai](https://console.typesafe.ai).
 
+### Other providers
+
+Jev is also served by three AI gateways. Pass the matching variable to the component instead of
+`TYPESAFE_API_KEY`, and the component picks the provider from whichever key is set:
+
+| Provider | Variable | Model |
+| --- | --- | --- |
+| [TypeSafe](https://console.typesafe.ai) | `TYPESAFE_API_KEY` | `jev-latest` |
+| [Vercel AI Gateway](https://vercel.com/docs/ai-gateway/sdks-and-apis/typesafe) | `AI_GATEWAY_API_KEY` | `typesafe-ai/jev` |
+| [OpenRouter](https://openrouter.ai/docs/guides/community/typesafe-sdk) | `OPENROUTER_API_KEY` | `jev-latest` |
+| [Convex AI Gateway](https://docs.convex.dev/ai-gateway/api) | `JEV_PROVIDER=convex`, no key | `typesafe/jev-1.13` |
+
+```ts
+const app = defineApp({
+  env: { OPENROUTER_API_KEY: v.string() },
+});
+
+app.use(jevex, {
+  env: { OPENROUTER_API_KEY: app.env.OPENROUTER_API_KEY },
+});
+```
+
+The Convex AI Gateway needs no key. The component asks your deployment for a short-lived token on
+each batch, and the usage shows up on your Convex bill. It only works on cloud deployments that have
+the gateway enabled, not on a local backend:
+
+```ts
+app.use(jevex, { env: { JEV_PROVIDER: "convex" } });
+```
+
+If you pass more than one key, set `JEV_PROVIDER` to `typesafe`, `vercel`, `openrouter` or `convex`
+to choose. Without it, batches fail with an error that names the keys it found.
+
 ## Define an index
 
 ```ts
@@ -253,7 +286,8 @@ await index.forget(ctx, id);
 
 ## Running the example
 
-You need [Bun](https://bun.sh) and a TypeSafe API key.
+You need [Bun](https://bun.sh) and a key for one of the providers above. The commands below use
+TypeSafe. For another provider, set its variable instead.
 
 ```bash
 bun install
@@ -312,8 +346,8 @@ example/scripts/          local stand-in for the Jev API
 
 ## Things to know
 
-- Row contents leave your database and go to TypeSafe's API. Only put fields you're allowed to share
-  into `state`.
+- Row contents leave your database and go to TypeSafe, and through the gateway if you use one. Only
+  put fields you're allowed to share into `state`.
 - Answers lag your data. A row is `pending` or `stale` for about a second after it changes. If a
   mutation needs the answer before it commits, jevex is the wrong tool.
 - The cache grows with every distinct piece of content and has no eviction yet.
