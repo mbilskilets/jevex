@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+- Remove `TYPESAFE_BASE_URL` and the example's mock Jev server. jevex always talks to a real
+  provider; tests keep stubbing `fetch`.
+- README: jevex has no offline mode. Coding agents without a key should ask for one instead of
+  faking the Jev API.
+
 ## 0.1.1
 
 - Call Jev through the Vercel AI Gateway (`AI_GATEWAY_API_KEY`), OpenRouter (`OPENROUTER_API_KEY`)

@@ -18,25 +18,24 @@ function provider(): Provider {
   const [only, ...others] = configured;
   if (only && others.length === 0) return only;
   if (!only) {
-    throw new Error("No Jev provider configured: set TYPESAFE_API_KEY, AI_GATEWAY_API_KEY or OPENROUTER_API_KEY, or JEV_PROVIDER=convex");
+    throw new Error("No Jev provider configured: set TYPESAFE_API_KEY, AI_GATEWAY_API_KEY or OPENROUTER_API_KEY, or JEV_PROVIDER=convex. Get a key at https://console.typesafe.ai; jevex does not work without one");
   }
   throw new Error(`Several Jev keys are set (${configured.map((name) => keys[name]).join(", ")}): pick one with JEV_PROVIDER`);
 }
 
 export async function client(): Promise<TypeSafeClient> {
   const name = provider();
-  const baseURL = env.TYPESAFE_BASE_URL;
   switch (name) {
     case "typesafe":
-      return new TypeSafeClient({ apiKey: key(name), baseURL });
+      return new TypeSafeClient({ apiKey: key(name) });
     case "vercel":
       return new TypeSafeClient({
         apiKey: key(name),
-        baseURL: baseURL ?? "https://ai-gateway.vercel.sh/typesafe",
+        baseURL: "https://ai-gateway.vercel.sh/typesafe",
         defaultModel: "typesafe-ai/jev",
       });
     case "openrouter":
-      return new TypeSafeClient({ apiKey: key(name), baseURL: baseURL ?? "https://openrouter.ai/api" });
+      return new TypeSafeClient({ apiKey: key(name), baseURL: "https://openrouter.ai/api" });
     case "convex":
       return new TypeSafeClient({
         apiKey: await getServiceToken("ai-gateway"),
