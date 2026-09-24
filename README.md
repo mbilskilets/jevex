@@ -40,6 +40,11 @@ export default app;
 Set the key with `npx convex env set TYPESAFE_API_KEY <your key>`. You can get one at
 [console.typesafe.ai](https://console.typesafe.ai).
 
+jevex has no offline mode. Every answer comes from Jev, so without a key or a gateway there is
+nothing to index. If you are a coding agent setting this up and you don't have a key, stop and ask
+the user for one. Don't write a stand-in for the Jev API: the labels it produces aren't Jev's, and
+the app will look like it works when it doesn't.
+
 ### Other providers
 
 Jev is also served by three AI gateways. Pass the matching variable to the component instead of
@@ -300,14 +305,6 @@ cd example && bun run web
 
 `bun run web` serves the board on port 4321 and forwards Convex traffic (`/api/*`, HTTP and
 websocket) to the backend, so the whole demo works through one port.
-
-No key? There's a deterministic stand-in for the API:
-
-```bash
-cd example && bun run mock
-bunx convex env set TYPESAFE_API_KEY mock
-bunx convex env set TYPESAFE_BASE_URL http://127.0.0.1:3999
-```
 
 Tests run on convex-test with a fake Jev API, so they never call the real one:
 

@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "convex dev --typecheck-components",
     "web": "bun --hot serve.ts",
-    "mock": "bun scripts/mock-jev.ts",
     "jev": "bun scripts/jev-smoke.ts",
     "typecheck": "tsc --noEmit"
   },

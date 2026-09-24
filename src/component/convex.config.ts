@@ -6,7 +6,6 @@ const component = defineComponent("jevex", {
   env: {
     JEV_PROVIDER: v.optional(v.union(v.literal("typesafe"), v.literal("vercel"), v.literal("openrouter"), v.literal("convex"))),
     TYPESAFE_API_KEY: v.optional(v.string()),
-    TYPESAFE_BASE_URL: v.optional(v.string()),
     AI_GATEWAY_API_KEY: v.optional(v.string()),
     OPENROUTER_API_KEY: v.optional(v.string()),
   },

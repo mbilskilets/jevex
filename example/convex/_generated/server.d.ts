@@ -35,7 +35,6 @@ type Env = {
     "typesafe" | "vercel" | "openrouter" | "convex" | undefined;
   readonly OPENROUTER_API_KEY: string | undefined;
   readonly TYPESAFE_API_KEY: string | undefined;
-  readonly TYPESAFE_BASE_URL: string | undefined;
 };
 
 /**
