@@ -1,11 +1,20 @@
 # jevex
 
-Ask your Convex tables questions in plain English, and keep the answers in an index.
+A small Convex component that uses [Jev](https://docs.typesafe.ai) to build a semantic index over
+your tables.
 
-jevex is a Convex component that turns [TypeSafe's Jev](https://docs.typesafe.ai) into a semantic
-index. You declare questions about a table. Every insert and update is judged in the background, the
-answers are written back to your database, and your queries read them like any other indexed field.
-Reads are reactive and cost nothing extra.
+You write questions about a table in plain English: "is this a bug report?", "is this customer about
+to leave?". jevex asks Jev when a row changes and stores the answers in an indexed table. Your
+queries then filter and sort by those answers the same way they would by a number column.
+
+```ts
+const leaving = await feedbackJudge.top(ctx, "churn", { min: 0.8 });
+```
+
+That line never calls a model. It reads an index range, so it's as fast as any other Convex query
+and it updates live when a new answer lands.
+
+## Install
 
 ```bash
 npm install @mbilskilets/jevex
@@ -28,8 +37,10 @@ app.use(jevex, {
 export default app;
 ```
 
-Set the key on your deployment with `npx convex env set TYPESAFE_API_KEY <your key>`.
-Get one at [console.typesafe.ai](https://console.typesafe.ai).
+Set the key with `npx convex env set TYPESAFE_API_KEY <your key>`. You can get one at
+[console.typesafe.ai](https://console.typesafe.ai).
+
+## Define an index
 
 ```ts
 // convex/judges.ts
@@ -48,14 +59,10 @@ export const feedbackJudge = jevex.index("feedback", {
   },
   onJudged: internal.feedback.judged,
 });
-
-const leaving = await feedbackJudge.top(ctx, "churn", { min: 0.8 });
-const bugs = await feedbackJudge.top(ctx, "kind", { label: "bug" });
 ```
 
-Judging happens on write. Register the index as a
-[convex-helpers trigger](https://github.com/get-convex/convex-helpers#triggers) and use the wrapped
-`mutation` for writes to that table:
+Then hook it to writes with a [convex-helpers trigger](https://github.com/get-convex/convex-helpers#triggers)
+and use the wrapped `mutation` for that table:
 
 ```ts
 // convex/functions.ts
@@ -71,17 +78,60 @@ triggers.register("feedback", feedbackJudge.trigger());
 export const mutation = customMutation(rawMutation, customCtx(triggers.wrapDB));
 ```
 
-Why judge at write time? Convex queries can't call external APIs, because they have to stay
-deterministic to be reactive. So jevex judges when a row changes and stores the answer. The model runs
-once per change, and every read after that is an index lookup that updates live.
+Now read it:
+
+```ts
+const leaving = await feedbackJudge.top(ctx, "churn", { min: 0.8 });
+const bugs = await feedbackJudge.top(ctx, "kind", { label: "bug" });
+const one = await feedbackJudge.get(ctx, id); // { state: "judged", answers: { kind, churn, urgency } }
+```
+
+## Why judge on write
+
+Convex queries can't make network calls. They have to be deterministic so Convex can cache them and
+re-run them when data changes. So a query can't ask a model anything.
+
+The usual workaround is an action that calls the model on every read, or a page that loads first and
+fills in labels later. Both are slow, and both pay for the same answer over and over.
+
+With jevex the model runs once per change to a row, the answer is stored, and every read after
+that is a normal indexed query. Reads outnumber writes by a lot in most apps, so this is where the
+cost belongs.
+
+## Why it stays fast
+
+The write path doesn't wait for the model. Your mutation and the trigger run in one transaction, and
+the trigger does a few indexed reads, a hash and one insert. No network call happens inside your
+transaction, so it stays short and doesn't hold conflicts open while an API responds. jevex adds a
+few small reads and writes to your mutation, not a model round trip.
+
+Unrelated writes cost nothing. jevex hashes the questions together with the fields you return from
+`state`. If you patch a field Jev doesn't see, like `updatedAt` or `assignee`, the hash doesn't change
+and the trigger returns early. If the same content was judged before, anywhere in the table, the
+answer comes from the cache in the same transaction.
+
+The model calls are batched. A dispatcher waits 100 ms after the first queued row and packs up to 20
+rows into one request, with up to 16 requests in flight. A burst of 300 new rows turns into about 15
+API calls, not 300.
+
+Reads are index ranges. Answers live in their own table indexed by
+`(index, question, label, value)`. "Churn above 0.8, highest first" or "choice is bug, most confident
+first" reads exactly the rows it returns. There's no scan and no post-filter in JavaScript, so it
+works the same on 100 rows and on 1M.
+
+Reactivity is narrow. A query over `top("churn", ...)` depends only on the index range it read.
+Convex re-runs it when an answer in that range changes, not on every write to your table.
+
+This fits OLTP-style apps: lots of small writes, lots of reads that need to come back in
+milliseconds, and a classification you want to filter on without a separate pipeline.
 
 ## What it looks like
 
-The repo ships a demo: a customer feedback inbox that sorts itself. Paste a message and watch it move
-from the intake belt into Bugs, Requests, Billing, Questions or Praise, with a churn score and a
-"might leave" rail on the side.
+The repo has a demo, a customer feedback inbox that sorts itself. Paste a message and it moves from
+the intake belt into Bugs, Requests, Billing, Questions or Praise, with a churn score and a "might
+leave" rail on the side.
 
-Numbers from a run against the real Jev API on a local Convex backend:
+I ran it against the real Jev API on a local Convex backend:
 
 | What | Result |
 | --- | --- |
@@ -91,18 +141,16 @@ Numbers from a run against the real Jev API on a local Convex backend:
 | Same 25, churn above or below 0.5 correct | 24 of 25 |
 | A message whose text was judged before | filed in the same transaction, no API call |
 
-The two misses were fair. "How do I downgrade to the free plan?" came back as a question, not billing.
-"We moved to Notion, please delete our account" came back as a bug because the demo has no
-"cancellation" category. Its churn score of 0.64 was still right.
+The two misses were fair. "How do I downgrade to the free plan?" came back as a question, not
+billing. "We moved to Notion, please delete our account" came back as a bug because the demo has no
+cancellation category. Its churn score of 0.64 was still right.
 
-## Use cases
+## Where it fits
 
-Anything where a human would read a row and make a small call about it. A few that fit well:
+Anywhere a person would read a row and make a small call about it.
 
-### Support and feedback triage
-
-This is the demo. Sort incoming messages by what they mean, rank them by churn risk, and ping the
-founder when a paying customer is about to leave.
+Support triage is the demo. Sort messages by what they mean, rank by churn risk, and alert someone
+when a paying customer is about to leave:
 
 ```ts
 export const judged = internalMutation({
@@ -114,10 +162,8 @@ export const judged = internalMutation({
 });
 ```
 
-### Moderation before publishing
-
-Posts start hidden. They go live once Jev is confident they are not spam or abuse, and the doubtful
-ones wait for a person.
+Moderation works the same way. Posts start hidden and go live once Jev is confident they aren't spam.
+The unsure ones wait for a person:
 
 ```ts
 export const postJudge = jevex.index("posts", {
@@ -129,64 +175,12 @@ export const postJudge = jevex.index("posts", {
   onJudged: internal.posts.review,
 });
 
-const queue = await postJudge.top(ctx, "spam", { min: 0.3, max: 0.7 });
+const unsure = await postJudge.top(ctx, "spam", { min: 0.3, max: 0.7 });
 ```
 
-### Recruiting pipelines
-
-Rank applicants on the things a CV screen actually checks, and keep the ranking current when a
-candidate updates their profile.
-
-```ts
-export const candidateJudge = jevex.index("candidates", {
-  state: ({ summary, experience }) => ({ summary, experience }),
-  questions: {
-    shipped: noul("Has shipped a product that real users used"),
-    seniority: score("How senior is this person?", ["junior", "mid", "senior", "staff"]),
-    track: choice("Which role fits best?", { frontend: null, backend: null, data: null }),
-  },
-});
-
-const seniorBackend = await candidateJudge.top(ctx, "track", { label: "backend", min: 0.7 });
-```
-
-### Marketplace listings
-
-Catch listings that smell like fraud and categorise the rest, without a rules engine that scammers
-learn to route around.
-
-```ts
-questions: {
-  scam: noul("The listing looks like a scam: price far too low, off-platform payment, urgency"),
-  category: choice("Which category does this item belong to?", { electronics: null, home: null, fashion: null }),
-}
-```
-
-### App store and review mining
-
-Reviews that mention a crash become issues. Reviews that compare you to a competitor go to marketing.
-
-```ts
-questions: {
-  crash: noul("The reviewer reports a crash or the app not opening"),
-  competitor: noul("The reviewer compares this app to a named competitor"),
-  quotable: noul("This review could be quoted on the website"),
-}
-```
-
-### Inbound leads
-
-Score form submissions before a salesperson opens them.
-
-```ts
-questions: {
-  realCompany: noul("This is a real company, not a student project or a test"),
-  budget: score("How large does the budget sound?", ["none", "small", "medium", "large"]),
-}
-```
-
-The pattern is the same every time. A write triggers a judgment, the answer lands in the database, a
-reactive query or a callback does something with it.
+Other things that fit: ranking job applicants and keeping the ranking current when they edit their
+profile, flagging marketplace listings that look like scams, turning app reviews that mention a crash
+into issues, scoring inbound leads before sales opens them.
 
 ## How it works
 
@@ -203,25 +197,22 @@ reactive query or a callback does something with it.
                           record: cache + answers index + your onJudged callback
 ```
 
-1. A [convex-helpers trigger](https://github.com/get-convex/convex-helpers#triggers) hands every
-   insert, update and delete to the component in the same transaction as the write. A delete removes
-   the judgment and its answers.
-2. The component hashes the questions together with the fields you chose to send. If the hash hasn't
-   changed, nothing happens. If that exact content was judged before, the cached answer is applied on
-   the spot.
-3. Anything new is queued. The dispatcher groups queued rows into requests of up to 20 rows: one
-   shared state and one question per row, scoped to `rows[i]`. Accuracy drops when Jev has to find a
-   row in a longer array, so 20 is the default.
-4. A [workpool](https://www.convex.dev/components/workpool) keeps 16 requests in flight at most. The
-   TypeSafe SDK retries rate limits and server errors. Client errors fail the batch straight away.
-5. Answers go into an `answers` table indexed by question, label and value. "Churn above 0.8, highest
-   first" is an index range read.
+1. The trigger hands every insert, update and delete to the component in the same transaction as
+   the write. A delete removes the judgment and its answers.
+2. The component hashes the questions and the `state` fields. Same hash, nothing happens. Seen that
+   content before, the cached answer is applied right away.
+3. Anything new is queued. The dispatcher groups queued rows into requests of up to 20: one shared
+   state and one question per row, scoped to `rows[i]`. Jev gets less accurate when it has to find a
+   row in a longer array, which is why the default is 20.
+4. A [workpool](https://www.convex.dev/components/workpool) keeps at most 16 requests in flight. The
+   TypeSafe SDK retries rate limits and server errors. Client errors fail the batch right away.
+5. Answers go into the `answers` table and its index.
 6. Every batch carries a claim token. If a row is edited while Jev is reading the old text, the late
-   answer is cached and dropped. The edit always wins.
-7. Running batches hold a ten minute lease. A cron puts rows back in the queue when their batch
-   vanished without reporting back. This happened for real when the local backend restarted mid-batch.
+   answer goes to the cache and is dropped for that row. The edit always wins.
+7. Running batches hold a ten minute lease. A cron re-queues rows whose batch disappeared without
+   reporting back. I saw this happen when the local backend restarted mid-batch.
 
-A judgment is always one of four states, so the UI can show each one honestly:
+A judgment is in one of four states, so the UI can show each one:
 
 | State | Meaning |
 | --- | --- |
@@ -251,18 +242,18 @@ await index.judge(ctx, id, doc);
 await index.forget(ctx, id);
 ```
 
-- `state` picks what Jev sees. Send only what the judgment needs. It is cheaper, and it keeps the rest
-  of the row out of a third-party API.
+- `state` picks what Jev sees. Send only what the question needs. It's cheaper, it keeps the rest of
+  the row out of a third-party API, and it means edits to other fields never trigger a new judgment.
 - Answer types come from your questions. `answers.kind.choice` is typed `"bug" | "feature" | "billing"`,
   and `top` requires a `label` for choice questions.
-- `onJudged` is an internal mutation that receives `{ docId, answers }`. It fires on fresh answers and
-  on cache hits.
-- Index definitions live in your code. Change a question and every row is judged again on its next
-  write, because the question hash is part of the cache key.
+- `onJudged` is an internal mutation that gets `{ docId, answers }`. It fires on fresh answers and on
+  cache hits.
+- Questions live in your code. Change one and every row is judged again on its next write, because
+  the question hash is part of the cache key.
 
 ## Running the example
 
-You need [Bun](https://bun.sh) and a TypeSafe API key from [console.typesafe.ai](https://console.typesafe.ai).
+You need [Bun](https://bun.sh) and a TypeSafe API key.
 
 ```bash
 bun install
@@ -273,11 +264,10 @@ bunx convex env set TYPESAFE_API_KEY <your key>
 cd example && bun run web
 ```
 
-`bun run web` serves the board on port 4321 and forwards Convex traffic (`/api/*`, HTTP and websocket)
-to the backend, so the whole demo works through one port. That matters behind proxies that forward a
-single port.
+`bun run web` serves the board on port 4321 and forwards Convex traffic (`/api/*`, HTTP and
+websocket) to the backend, so the whole demo works through one port.
 
-No key? There is a deterministic stand-in for the API:
+No key? There's a deterministic stand-in for the API:
 
 ```bash
 cd example && bun run mock
@@ -294,7 +284,8 @@ bun run typecheck
 
 ## Testing your app
 
-`@mbilskilets/jevex/test` registers the component with convex-test. It uses a workpool, so register that too:
+`@mbilskilets/jevex/test` registers the component with convex-test. jevex uses a workpool, so
+register that too:
 
 ```ts
 import workpool from "@convex-dev/workpool/test";
@@ -321,10 +312,10 @@ example/scripts/          local stand-in for the Jev API
 
 ## Things to know
 
-- Row contents leave your database and go to TypeSafe's API. Put only fields you are allowed to share
+- Row contents leave your database and go to TypeSafe's API. Only put fields you're allowed to share
   into `state`.
-- Judgments are eventually consistent with your data. A row is `pending` or `stale` for roughly a
-  second after it changes. If a mutation needs the answer before it commits, jevex is the wrong tool.
+- Answers lag your data. A row is `pending` or `stale` for about a second after it changes. If a
+  mutation needs the answer before it commits, jevex is the wrong tool.
 - The cache grows with every distinct piece of content and has no eviction yet.
-- The demo's mutations are public and have no auth, on purpose. Writes that reach Jev are rate limited
-  to bursts of 60 and 120 per minute across the deployment.
+- The demo's mutations are public and have no auth, on purpose. Writes that reach Jev are rate
+  limited to bursts of 60 and 120 per minute across the deployment.
